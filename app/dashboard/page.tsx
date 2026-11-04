@@ -1,0 +1,10 @@
+"use client";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { CalendarDays, ClipboardList } from "lucide-react";
+import type { Booking } from "@/types";
+export default function DashboardPage() {
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  useEffect(() => { try { setBookings(JSON.parse(localStorage.getItem("urbannest-bookings") || "[]")); } catch { setBookings([]); } }, []);
+  return <main><section className="page-hero"><div className="container"><div className="eyebrow">Your home, all in one place</div><h1 className="display">My bookings.</h1><p>Review demo booking requests saved in this browser.</p></div></section><section className="section" style={{paddingTop:0}}><div className="container"><div className="dashboard-stats"><div className="stat-card"><span>Total requests</span><strong>{bookings.length}</strong></div><div className="stat-card"><span>Upcoming</span><strong>{bookings.filter((booking) => booking.status === "Requested").length}</strong></div><div className="stat-card"><span>Booking mode</span><strong style={{fontSize:21}}>Demo</strong></div></div><div className="admin-panel"><h2>Recent requests</h2>{bookings.length === 0 ? <div className="empty-state"><ClipboardList size={28}/><strong>No bookings yet</strong><p>Choose a service and make your first request.</p><Link className="btn btn-primary" href="/services">Explore services</Link></div> : bookings.map((booking) => <article className="booking-row" key={booking.id}><div><strong>{booking.service}</strong><div className="muted" style={{fontSize:13,marginTop:5}}><CalendarDays size={13} style={{display:"inline",verticalAlign:"middle"}}/> {booking.date} · {booking.time}</div><div className="muted" style={{fontSize:12,marginTop:4}}>{booking.location} · Ref {booking.id}</div></div><div style={{display:"flex",alignItems:"center",gap:12}}><span className="price">From ₹{booking.price}</span><span className="status-pill">{booking.status}</span></div></article>)}</div><p className="muted" style={{fontSize:12,marginTop:14}}>Demo data is stored in this browser only. It is not synced to a server.</p></div></section></main>;
+}
