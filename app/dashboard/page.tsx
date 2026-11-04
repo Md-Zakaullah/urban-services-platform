@@ -1,136 +1,27 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Check, ClipboardCheck } from "lucide-react";
+import { CalendarDays, ClipboardList } from "lucide-react";
 
-export default function BookingForm() {
-  const params = useSearchParams();
-  const [services, setServices] = useState<Array<{ id: number; name: string; price: number }>>([]);
-  const [serviceId, setServiceId] = useState<string>("1");
-  const [done, setDone] = useState(false);
-  const [bookingId, setBookingId] = useState("");
-  const [message, setMessage] = useState("");
+type BookingRow = { id: number; service: string; location: string; date: string; time: string; status: string; price: number };
+
+export default function DashboardPage() {
+  const [bookings, setBookings] = useState<BookingRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [signedOut, setSignedOut] = useState(false);
 
   useEffect(() => {
-    async function loadServices() {
-      const response = await fetch("/api/services");
-      const data = await response.json();
-      setServices(data);
-      const initial = params.get("service");
-      if (initial) {
-        const match = data.find((service: { id: number; name: string }) => service.name.toLowerCase().replace(/\s+/g, "-") === initial || String(service.id) === initial);
-        if (match) setServiceId(String(match.id));
-      }
+    async function load() {
+      try {
+        const response = await fetch("/api/bookings");
+        if (response.status === 401) { setSignedOut(true); return; }
+        if (response.ok) setBookings(await response.json());
+      } catch { /* Show the empty/error-safe dashboard state. */ }
+      finally { setLoading(false); }
     }
-    void loadServices();
-  }, [params]);
+    void load();
+  }, []);
 
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setMessage("");
-
-    const form = new FormData(event.currentTarget);
-    const payload = {
-      serviceId: Number(form.get("serviceId") || serviceId),
-      location: String(form.get("location") || ""),
-      date: String(form.get("date") || ""),
-      time: String(form.get("time") || ""),
-      notes: String(form.get("notes") || ""),
-    };
-
-    const response = await fetch("/api/bookings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    const result = await response.json();
-    if (!response.ok) {
-      setMessage(result.error || "Booking failed");
-      return;
-    }
-
-    setBookingId(String(result.id));
-    setDone(true);
-  }
-
-  if (done) {
-    return (
-      <div className="form-card success-screen">
-        <div className="success-icon"><Check /></div>
-        <div className="eyebrow">Request received</div>
-        <h1 className="display" style={{ fontSize: 38 }}>You’re on your way.</h1>
-        <p className="muted">Your booking <strong>{bookingId}</strong> has been stored in the database.</p>
-        <div style={{ display: "flex", justifyContent: "center", gap: 10, flexWrap: "wrap", marginTop: 22 }}>
-          <Link className="btn btn-primary" href="/dashboard">View my bookings</Link>
-          <Link className="btn btn-light" href="/services">Explore more</Link>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <form className="form-card" onSubmit={submit}>
-      <div className="eyebrow"><ClipboardCheck size={15} /> Booking details</div>
-      <h2 className="display" style={{ fontSize: 36, margin: "10px 0 6px" }}>Let’s get it sorted.</h2>
-      <p className="muted" style={{ marginTop: 0 }}>Choose a service and a time that works for you.</p>
-
-      <div className="form-grid" style={{ marginTop: 24 }}>
-        <div className="form-field full">
-          <label htmlFor="service">Choose a service</label>
-          <select id="service" value={serviceId} name="serviceId" onChange={(event) => setServiceId(event.target.value)}>
-            {services.map((service) => (
-              <option key={service.id} value={service.id}>
-                {service.name} · from ₹{service.price}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="form-field">
-          <label htmlFor="name">Your name</label>
-          <input id="name" name="name" required placeholder="e.g. Aisha Khan" autoComplete="name" />
-        </div>
-
-        <div className="form-field">
-          <label htmlFor="phone">Mobile number</label>
-          <input id="phone" name="phone" required type="tel" placeholder="Your contact number" autoComplete="tel" />
-        </div>
-
-        <div className="form-field full">
-          <label htmlFor="location">Service address / area</label>
-          <input id="location" name="location" required placeholder="Flat, street, locality, city" autoComplete="street-address" />
-        </div>
-
-        <div className="form-field">
-          <label htmlFor="date">Preferred date</label>
-          <input id="date" name="date" type="date" required min={new Date().toISOString().split("T")[0]} />
-        </div>
-
-        <div className="form-field">
-          <label htmlFor="time">Preferred time</label>
-          <select id="time" name="time" required defaultValue="">
-            <option value="" disabled>Select a time slot</option>
-            <option>9:00 AM – 12:00 PM</option>
-            <option>12:00 PM – 3:00 PM</option>
-            <option>3:00 PM – 6:00 PM</option>
-            <option>6:00 PM – 8:00 PM</option>
-          </select>
-        </div>
-
-        <div className="form-field full">
-          <label htmlFor="notes">Anything we should know? (optional)</label>
-          <textarea id="notes" name="notes" rows={3} placeholder="Share helpful details about the job" />
-        </div>
-
-        <div className="form-field full">
-          <button className="btn btn-primary" type="submit">Request a booking</button>
-          {message && <div className="notice">{message}</div>}
-          <small className="muted">Demo booking uses a real database-backed API and stores the request in SQLite.</small>
-        </div>
-      </div>
-    </form>
-  );
+  return <main><section className="page-hero"><div className="container"><div className="eyebrow">Your home, all in one place</div><h1 className="display">My bookings.</h1><p>Review booking requests connected to your account.</p></div></section><section className="section" style={{paddingTop:0}}><div className="container">{signedOut ? <div className="form-card"><h2>Log in to view your bookings</h2><p className="muted">Bookings are private to your account.</p><Link className="btn btn-primary" href="/login">Log in</Link></div> : <><div className="dashboard-stats"><div className="stat-card"><span>Total requests</span><strong>{bookings.length}</strong></div><div className="stat-card"><span>Upcoming</span><strong>{bookings.filter((booking) => booking.status === "requested").length}</strong></div><div className="stat-card"><span>Storage</span><strong style={{fontSize:21}}>PostgreSQL</strong></div></div><div className="admin-panel"><h2>Recent requests</h2>{loading ? <div className="empty-state">Loading your bookings…</div> : bookings.length === 0 ? <div className="empty-state"><ClipboardList size={28}/><strong>No bookings yet</strong><p>Choose a service and make your first request.</p><Link className="btn btn-primary" href="/services">Explore services</Link></div> : bookings.map((booking) => <article className="booking-row" key={booking.id}><div><strong>{booking.service}</strong><div className="muted" style={{fontSize:13,marginTop:5}}><CalendarDays size={13} style={{display:"inline",verticalAlign:"middle"}}/> {booking.date} · {booking.time}</div><div className="muted" style={{fontSize:12,marginTop:4}}>{booking.location} · Ref {booking.id}</div></div><div style={{display:"flex",alignItems:"center",gap:12}}><span className="price">From ₹{booking.price}</span><span className="status-pill">{booking.status}</span></div></article>)}</div></>}</div></section></main>;
 }

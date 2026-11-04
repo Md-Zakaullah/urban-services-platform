@@ -1,52 +1,27 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { createSessionForUser, hashPassword } from "@/lib/auth";
+import { createSessionForUser, verifyPassword } from "@/lib/auth";
 
-const signupSchema = z.object({
-  name: z.string().min(2),
-  email: z.string().email(),
-  password: z.string().min(8),
+const schema = z.object({
+  email: z.string().trim().email().max(254).transform((value) => value.toLowerCase()),
+  password: z.string().min(8).max(72),
 });
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const parsed = signupSchema.safeParse(body);
+    const parsed = schema.safeParse(await request.json());
+    if (!parsed.success) return NextResponse.json({ error: "Invalid email or password." }, { status: 400 });
 
-    if (!parsed.success) {
-      return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+    const user = await prisma.user.findUnique({ where: { email: parsed.data.email } });
+    if (!user || !(await verifyPassword(parsed.data.password, user.password))) {
+      return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
     }
-
-    const { name, email, password } = parsed.data;
-
-    const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) {
-      return NextResponse.json({ error: "User already exists" }, { status: 409 });
-    }
-
-    const hashedPassword = await hashPassword(password);
-    const user = await prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-        role: "customer",
-      },
-    });
 
     await createSessionForUser(user.id);
-
-    return NextResponse.json({
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
-    });
+    return NextResponse.json({ user: { id: user.id, name: user.name, email: user.email, role: user.role } });
   } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: "Something went wrong" }, { status: 500 });
+    console.error("Login failed", error);
+    return NextResponse.json({ error: "Could not log in right now. Please try again." }, { status: 500 });
   }
 }

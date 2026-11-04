@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -24,33 +24,42 @@ model Session {
   userId    Int
   createdAt DateTime @default(now())
   expiresAt DateTime
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model Service {
-  id          Int       @id @default(autoincrement())
+  id          String    @id
   name        String
   category    String
   description String
   price       Int
-  rating      Float
-  reviews     Int
+  rating      Float     @default(0)
+  reviews     Int       @default(0)
   icon        String
   duration    String
+  active      Boolean   @default(true)
   bookings    Booking[]
 }
 
 model Booking {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  serviceId Int
-  location  String
-  date      String
-  time      String
-  notes     String?
-  status    String   @default("requested")
-  amount    Int
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
-  service   Service  @relation(fields: [serviceId], references: [id])
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  serviceId   String
+  contactName String
+  contactPhone String
+  location    String
+  date        String
+  time        String
+  notes       String?
+  status      String   @default("requested")
+  amount      Int
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  service     Service  @relation(fields: [serviceId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([status])
 }

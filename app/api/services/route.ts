@@ -1,17 +1,28 @@
 import { NextResponse } from "next/server";
-import { AUTH_COOKIE, clearSessionCookie, getCurrentUser, prisma } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { services as seedServices } from "@/data/services";
 
-export async function POST() {
-  const user = await getCurrentUser();
-
-  if (user) {
-    const cookieStore = await import("next/headers").then((mod) => mod.cookies());
-    const token = cookieStore.get(AUTH_COOKIE)?.value;
-    if (token) {
-      await prisma.session.deleteMany({ where: { token } });
-    }
+export async function GET() {
+  try {
+    await Promise.all(seedServices.map((service) => prisma.service.upsert({
+      where: { id: service.id },
+      update: {},
+      create: {
+        id: service.id,
+        name: service.name,
+        category: service.category,
+        description: service.description,
+        price: service.price,
+        rating: service.rating,
+        reviews: service.reviews,
+        icon: service.icon,
+        duration: service.duration,
+      },
+    })));
+    const services = await prisma.service.findMany({ where: { active: true }, orderBy: { name: "asc" } });
+    return NextResponse.json(services);
+  } catch (error) {
+    console.error("Unable to load services", error);
+    return NextResponse.json({ error: "Services are temporarily unavailable." }, { status: 500 });
   }
-
-  await clearSessionCookie();
-  return NextResponse.json({ ok: true });
 }
